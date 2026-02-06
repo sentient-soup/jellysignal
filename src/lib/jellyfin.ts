@@ -42,7 +42,7 @@ export async function authenticateWithJellyfin(
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "X-Emby-Authorization": `MediaBrowser Client="JellyRequests", Device="Server", DeviceId="jellyrequests", Version="1.0.0"`,
+        "X-Emby-Authorization": `MediaBrowser Client="JellySignal", Device="Server", DeviceId="jellysignal", Version="1.0.0"`,
       },
       body: JSON.stringify({
         Username: username,

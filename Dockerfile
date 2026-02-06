@@ -12,6 +12,9 @@ RUN npm ci
 # Copy source
 COPY . .
 
+# Create data directory (needed if build-time code references it)
+RUN mkdir -p /app/data
+
 # Build the app
 RUN npm run build
 
