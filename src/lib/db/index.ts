@@ -15,10 +15,20 @@ function getClient(): Client {
   return client;
 }
 
-function ensureTables(c: Client) {
+// Use native libsql module for SYNCHRONOUS table creation.
+// The @libsql/client's executeMultiple is async and wasn't being awaited,
+// so tables never existed by the time the first query ran.
+function ensureTables() {
   if (initialized) return;
   initialized = true;
-  c.executeMultiple(`
+
+  const dbUrl = process.env.DATABASE_URL || "file:./data/jellysignal.db";
+  const dbPath = dbUrl.replace(/^file:/, "");
+
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const NativeDatabase = require("libsql");
+  const nativeDb = new NativeDatabase(dbPath);
+  nativeDb.exec(`
     CREATE TABLE IF NOT EXISTS users (
       id TEXT PRIMARY KEY,
       username TEXT NOT NULL,
@@ -50,13 +60,14 @@ function ensureTables(c: Client) {
     );
     CREATE UNIQUE INDEX IF NOT EXISTS vote_request_user_idx ON votes(request_id, user_id);
   `);
+  nativeDb.close();
+  console.log("[JellySignal] Database tables initialized");
 }
 
 export function getDb() {
   if (!database) {
-    const c = getClient();
-    ensureTables(c);
-    database = drizzle(c, { schema });
+    ensureTables();
+    database = drizzle(getClient(), { schema });
   }
   return database;
 }
