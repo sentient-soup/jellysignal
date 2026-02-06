@@ -1,7 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: "standalone",
-  serverExternalPackages: ["@libsql/client", "@libsql/linux-x64-musl", "libsql"],
+  experimental: {
+    serverComponentsExternalPackages: ["@libsql/client", "@libsql/linux-x64-musl", "libsql"],
+  },
   images: {
     remotePatterns: [
       {
