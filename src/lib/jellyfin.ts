@@ -1,7 +1,12 @@
 // Jellyfin API client
 
-const JELLYFIN_URL = process.env.JELLYFIN_URL || "http://localhost:8096";
-const JELLYFIN_API_KEY = process.env.JELLYFIN_API_KEY || "";
+function getJellyfinUrl() {
+  return process.env.JELLYFIN_URL || "http://localhost:8096";
+}
+
+function getJellyfinApiKey() {
+  return process.env.JELLYFIN_API_KEY || "";
+}
 
 interface JellyfinAuthResponse {
   User: {
@@ -37,8 +42,11 @@ export async function authenticateWithJellyfin(
   username: string,
   password: string
 ): Promise<JellyfinAuthResponse | null> {
+  const jellyfinUrl = getJellyfinUrl();
+  const url = `${jellyfinUrl}/Users/AuthenticateByName`;
+  console.log(`[JellySignal] Authenticating against: ${url}`);
   try {
-    const response = await fetch(`${JELLYFIN_URL}/Users/AuthenticateByName`, {
+    const response = await fetch(url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -51,12 +59,14 @@ export async function authenticateWithJellyfin(
     });
 
     if (!response.ok) {
+      const body = await response.text();
+      console.error(`[JellySignal] Auth failed: ${response.status} ${response.statusText}`, body);
       return null;
     }
 
     return await response.json();
   } catch (error) {
-    console.error("Jellyfin auth error:", error);
+    console.error("[JellySignal] Auth connection error:", error);
     return null;
   }
 }
@@ -66,7 +76,7 @@ export async function validateJellyfinToken(
   accessToken: string
 ): Promise<boolean> {
   try {
-    const response = await fetch(`${JELLYFIN_URL}/Users/${userId}`, {
+    const response = await fetch(`${getJellyfinUrl()}/Users/${userId}`, {
       headers: {
         "X-Emby-Token": accessToken,
       },
@@ -85,10 +95,10 @@ export async function getJellyfinLibrary(
       IncludeItemTypes: itemTypes.join(","),
       Recursive: "true",
       Fields: "ProviderIds,ProductionYear",
-      api_key: JELLYFIN_API_KEY,
+      api_key: getJellyfinApiKey(),
     });
 
-    const response = await fetch(`${JELLYFIN_URL}/Items?${params}`);
+    const response = await fetch(`${getJellyfinUrl()}/Items?${params}`);
 
     if (!response.ok) {
       throw new Error("Failed to fetch library");
