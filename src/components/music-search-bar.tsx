@@ -134,14 +134,14 @@ export function MusicSearchBar({ onRequest }: MusicSearchBarProps) {
                       {result.coverUrl ? (
                         <img
                           src={result.coverUrl}
-                          alt={result.title}
+                          alt=""
                           className="w-full h-full object-cover"
+                          onError={(e) => { e.currentTarget.style.display = "none"; e.currentTarget.nextElementSibling?.classList.remove("hidden"); }}
                         />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <Music className="h-6 w-6 text-muted-foreground" />
-                        </div>
-                      )}
+                      ) : null}
+                      <div className={`w-full h-full flex items-center justify-center ${result.coverUrl ? "hidden" : ""}`}>
+                        <Music className="h-6 w-6 text-muted-foreground" />
+                      </div>
                     </div>
 
                     <div className="flex-1 min-w-0">

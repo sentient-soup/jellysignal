@@ -91,7 +91,7 @@ export async function searchDeezerAlbums(query: string): Promise<MusicSearchResu
       title: album.title,
       artistName: album.artist.name,
       albumName: album.title,
-      coverUrl: album.cover_big || album.cover_medium || null,
+      coverUrl: (album.cover_big || album.cover_medium || "").replace(/^http:\/\//, "https://") || null,
       year: album.release_date ? new Date(album.release_date).getFullYear() : null,
       previewUrl: null,
       type: "album" as const,

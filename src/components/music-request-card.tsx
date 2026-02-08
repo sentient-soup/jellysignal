@@ -46,6 +46,7 @@ export function MusicRequestCard({ request, isAdmin, onVote, onDelete }: MusicRe
   const [localVoted, setLocalVoted] = useState(request.hasVoted);
   const [localCount, setLocalCount] = useState(request.voteCount);
   const [expanded, setExpanded] = useState(false);
+  const [imgError, setImgError] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ["request-details", request.id],
@@ -111,11 +112,12 @@ export function MusicRequestCard({ request, isAdmin, onVote, onDelete }: MusicRe
       <div className="relative flex gap-4 p-4">
         {/* Album Art (square) */}
         <div className="relative w-20 h-20 flex-shrink-0 rounded-lg overflow-hidden bg-muted">
-          {request.posterUrl ? (
+          {request.posterUrl && !imgError ? (
             <img
               src={request.posterUrl}
               alt={request.title}
               className="w-full h-full object-cover"
+              onError={() => setImgError(true)}
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center">
