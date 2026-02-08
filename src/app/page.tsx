@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
-import { Header } from "@/components/header";
-import { MainContent } from "@/components/main-content";
+import { AppShell } from "@/components/app-shell";
 
 export default async function Home() {
   const session = await getSession();
@@ -20,8 +19,7 @@ export default async function Home() {
 
   return (
     <div className="min-h-screen">
-      <Header user={user} />
-      <MainContent user={user} />
+      <AppShell user={user} />
     </div>
   );
 }

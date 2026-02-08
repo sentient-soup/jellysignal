@@ -45,6 +45,10 @@ export async function GET(request: NextRequest) {
       posterUrl: r.posterUrl,
       backdropUrl: r.backdropUrl,
       overview: r.overview,
+      deezerId: r.deezerId,
+      artistName: r.artistName,
+      albumName: r.albumName,
+      previewUrl: r.previewUrl,
       status: r.status,
       jellyfinStatus: r.jellyfinStatus,
       voteCount: r.votes.length,
@@ -76,20 +80,40 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
-    const { tmdbId, mediaType, title, year, posterUrl, backdropUrl, overview } =
-      body;
+    const {
+      tmdbId, mediaType, title, year, posterUrl, backdropUrl, overview,
+      deezerId, artistName, albumName, previewUrl,
+    } = body;
 
-    if (!tmdbId || !mediaType || !title) {
+    if (!mediaType || !title) {
       return NextResponse.json(
         { error: "Missing required fields" },
         { status: 400 }
       );
     }
 
+    // Validate: movie/tv need tmdbId, music needs deezerId
+    if (mediaType !== "music" && !tmdbId) {
+      return NextResponse.json(
+        { error: "Missing tmdbId for movie/tv request" },
+        { status: 400 }
+      );
+    }
+    if (mediaType === "music" && !deezerId) {
+      return NextResponse.json(
+        { error: "Missing deezerId for music request" },
+        { status: 400 }
+      );
+    }
+
     // Check if request already exists
-    const existing = await db.query.requests.findFirst({
-      where: and(eq(requests.tmdbId, tmdbId), eq(requests.mediaType, mediaType)),
-    });
+    const existing = mediaType === "music"
+      ? await db.query.requests.findFirst({
+          where: and(eq(requests.deezerId, deezerId), eq(requests.mediaType, "music")),
+        })
+      : await db.query.requests.findFirst({
+          where: and(eq(requests.tmdbId, tmdbId), eq(requests.mediaType, mediaType)),
+        });
 
     if (existing) {
       return NextResponse.json(
@@ -102,13 +126,17 @@ export async function POST(request: NextRequest) {
     const [newRequest] = await db
       .insert(requests)
       .values({
-        tmdbId,
+        tmdbId: mediaType === "music" ? null : tmdbId,
         mediaType,
         title,
         year,
         posterUrl,
         backdropUrl,
         overview,
+        deezerId: mediaType === "music" ? deezerId : null,
+        artistName: mediaType === "music" ? artistName : null,
+        albumName: mediaType === "music" ? albumName : null,
+        previewUrl: mediaType === "music" ? previewUrl : null,
         requestedBy: session.userId,
       })
       .returning();

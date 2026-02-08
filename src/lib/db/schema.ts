@@ -21,6 +21,12 @@ export const requests = sqliteTable("requests", {
   backdropUrl: text("backdrop_url"),
   overview: text("overview"),
 
+  // Music-specific fields
+  deezerId: text("deezer_id"),
+  artistName: text("artist_name"),
+  albumName: text("album_name"),
+  previewUrl: text("preview_url"),
+
   requestedBy: text("requested_by").references(() => users.id),
   priority: integer("priority").default(0),
   status: text("status", {

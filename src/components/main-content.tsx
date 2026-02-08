@@ -1,12 +1,14 @@
 "use client";
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { RefreshCw, Loader2 } from "lucide-react";
 import { SearchBar } from "./search-bar";
+import { MusicSearchBar } from "./music-search-bar";
 import { RequestList } from "./request-list";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
+import type { AppMode } from "./header";
 
 interface MainContentProps {
   user: {
@@ -14,6 +16,7 @@ interface MainContentProps {
     username: string;
     isAdmin: boolean;
   };
+  mode: AppMode;
 }
 
 interface SearchResult {
@@ -27,7 +30,18 @@ interface SearchResult {
   backdropUrl?: string | null;
 }
 
-export function MainContent({ user }: MainContentProps) {
+interface MusicSearchResult {
+  deezerId: string;
+  title: string;
+  artistName: string;
+  albumName: string;
+  coverUrl: string | null;
+  year: number | null;
+  previewUrl: string | null;
+  type: "album";
+}
+
+export function MainContent({ user, mode }: MainContentProps) {
   const [syncing, setSyncing] = useState(false);
   const queryClient = useQueryClient();
 
@@ -59,12 +73,49 @@ export function MainContent({ user }: MainContentProps) {
     },
   });
 
+  const createMusicRequest = useMutation({
+    mutationFn: async (result: MusicSearchResult) => {
+      const res = await fetch("/api/requests", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          deezerId: result.deezerId,
+          mediaType: "music",
+          title: result.title,
+          year: result.year,
+          posterUrl: result.coverUrl,
+          artistName: result.artistName,
+          albumName: result.albumName,
+          previewUrl: result.previewUrl,
+          overview: `Album by ${result.artistName}`,
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to create request");
+      }
+
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["requests"] });
+    },
+  });
+
   const handleRequest = async (result: SearchResult) => {
     try {
       await createRequest.mutateAsync(result);
     } catch (error) {
-      // Could add toast notification here
       console.error("Request failed:", error);
+    }
+  };
+
+  const handleMusicRequest = async (result: MusicSearchResult) => {
+    try {
+      await createMusicRequest.mutateAsync(result);
+    } catch (error) {
+      console.error("Music request failed:", error);
     }
   };
 
@@ -81,28 +132,46 @@ export function MainContent({ user }: MainContentProps) {
   return (
     <main className="container max-w-4xl mx-auto px-4 py-8">
       {/* Hero Section */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="text-center mb-8"
-      >
-        <h1 className="text-3xl md:text-4xl font-bold mb-2">
-          Request <span className="gradient-text">Media</span>
-        </h1>
-        <p className="text-muted-foreground">
-          Search for movies and TV shows to add to the library
-        </p>
-      </motion.div>
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={mode}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -20 }}
+          transition={{ duration: 0.2 }}
+          className="text-center mb-8"
+        >
+          <h1 className="text-3xl md:text-4xl font-bold mb-2">
+            Request{" "}
+            <span className="gradient-text">
+              {mode === "music" ? "Music" : "Media"}
+            </span>
+          </h1>
+          <p className="text-muted-foreground">
+            {mode === "music"
+              ? "Search for albums to add to the library"
+              : "Search for movies and TV shows to add to the library"}
+          </p>
+        </motion.div>
+      </AnimatePresence>
 
       {/* Search */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
-        className="mb-8"
-      >
-        <SearchBar onRequest={handleRequest} />
-      </motion.div>
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={`search-${mode}`}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -20 }}
+          transition={{ duration: 0.2, delay: 0.05 }}
+          className="mb-8"
+        >
+          {mode === "music" ? (
+            <MusicSearchBar onRequest={handleMusicRequest} />
+          ) : (
+            <SearchBar onRequest={handleRequest} />
+          )}
+        </motion.div>
+      </AnimatePresence>
 
       {/* Admin Sync Button */}
       {user.isAdmin && (
@@ -135,7 +204,7 @@ export function MainContent({ user }: MainContentProps) {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
       >
-        <RequestList isAdmin={user.isAdmin} />
+        <RequestList isAdmin={user.isAdmin} mode={mode} />
       </motion.div>
     </main>
   );

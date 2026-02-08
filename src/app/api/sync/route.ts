@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { db, requests } from "@/lib/db";
-import { searchJellyfinLibrary } from "@/lib/jellyfin";
+import { searchJellyfinLibrary, searchJellyfinMusic } from "@/lib/jellyfin";
 import { eq } from "drizzle-orm";
 
 export async function POST() {
@@ -22,12 +22,18 @@ export async function POST() {
     let updated = 0;
 
     for (const request of allRequests) {
-      if (!request.tmdbId) continue;
+      let result;
 
-      const result = await searchJellyfinLibrary(
-        request.tmdbId,
-        request.mediaType as "movie" | "tv"
-      );
+      if (request.mediaType === "music") {
+        if (!request.artistName || !request.albumName) continue;
+        result = await searchJellyfinMusic(request.artistName, request.albumName);
+      } else {
+        if (!request.tmdbId) continue;
+        result = await searchJellyfinLibrary(
+          request.tmdbId,
+          request.mediaType as "movie" | "tv"
+        );
+      }
 
       if (result.status !== request.jellyfinStatus) {
         await db

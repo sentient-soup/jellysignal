@@ -2,22 +2,21 @@
 
 import { motion, AnimatePresence } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
-import { Film, Tv, ChevronUp, Check, AlertTriangle, Clock, Trash2, Star, User } from "lucide-react";
+import { Music, ChevronUp, Check, AlertTriangle, Clock, Trash2, Disc, Calendar, Tag, User } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import Image from "next/image";
 import { useState } from "react";
 
-interface RequestCardProps {
+interface MusicRequestCardProps {
   request: {
     id: number;
-    tmdbId: string;
-    mediaType: string;
+    deezerId: string | null;
     title: string;
-    year: number | null;
+    artistName: string | null;
+    albumName: string | null;
     posterUrl: string | null;
-    overview: string | null;
+    year: number | null;
     jellyfinStatus: string;
     voteCount: number;
     hasVoted: boolean;
@@ -28,13 +27,20 @@ interface RequestCardProps {
   onDelete?: (id: number) => Promise<void>;
 }
 
-function formatRuntime(minutes: number): string {
-  const h = Math.floor(minutes / 60);
-  const m = minutes % 60;
-  return h > 0 ? `${h}h ${m}m` : `${m}m`;
+function formatDuration(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
-export function RequestCard({ request, isAdmin, onVote, onDelete }: RequestCardProps) {
+function formatTotalDuration(seconds: number): string {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  if (h > 0) return `${h} hr ${m} min`;
+  return `${m} min`;
+}
+
+export function MusicRequestCard({ request, isAdmin, onVote, onDelete }: MusicRequestCardProps) {
   const [voting, setVoting] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [localVoted, setLocalVoted] = useState(request.hasVoted);
@@ -53,7 +59,7 @@ export function RequestCard({ request, isAdmin, onVote, onDelete }: RequestCardP
   });
 
   const details = data?.details || null;
-  const cast = details?.credits?.cast?.slice(0, 12) || [];
+  const tracks = details?.tracks?.data || [];
 
   const handleVote = async () => {
     setVoting(true);
@@ -99,31 +105,21 @@ export function RequestCard({ request, isAdmin, onVote, onDelete }: RequestCardP
       whileHover={!expanded ? { scale: 1.02 } : undefined}
       onClick={() => setExpanded(!expanded)}
       className="group relative glass rounded-xl overflow-hidden border border-border/50 transition-all duration-300 cursor-pointer"
-      style={{
-        ["--hover-border" as string]: "var(--theme-primary)",
-      }}
     >
-      {/* Glow effect on hover */}
       <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none theme-gradient-subtle" />
 
       <div className="relative flex gap-4 p-4">
-        {/* Poster */}
-        <div className="relative w-20 h-28 flex-shrink-0 rounded-lg overflow-hidden bg-muted">
+        {/* Album Art (square) */}
+        <div className="relative w-20 h-20 flex-shrink-0 rounded-lg overflow-hidden bg-muted">
           {request.posterUrl ? (
-            <Image
+            <img
               src={request.posterUrl}
               alt={request.title}
-              fill
-              className="object-cover"
-              sizes="80px"
+              className="w-full h-full object-cover"
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center">
-              {request.mediaType === "movie" ? (
-                <Film className="h-8 w-8 text-muted-foreground" />
-              ) : (
-                <Tv className="h-8 w-8 text-muted-foreground" />
-              )}
+              <Music className="h-8 w-8 text-muted-foreground" />
             </div>
           )}
         </div>
@@ -131,16 +127,10 @@ export function RequestCard({ request, isAdmin, onVote, onDelete }: RequestCardP
         {/* Content */}
         <div className="flex-1 min-w-0 flex flex-col justify-between">
           <div>
-            <div className="flex items-start gap-2">
-              <h3 className="font-semibold text-lg truncate">{request.title}</h3>
-              {request.year && (
-                <span className="text-muted-foreground flex-shrink-0">
-                  ({request.year})
-                </span>
-              )}
-            </div>
-            <p className={`text-sm text-muted-foreground mt-1 ${expanded ? "" : "line-clamp-2"}`}>
-              {request.overview || "No description available"}
+            <h3 className="font-semibold text-lg truncate">{request.title}</h3>
+            <p className="text-sm text-muted-foreground truncate">
+              {request.artistName || "Unknown Artist"}
+              {request.year && <span> ({request.year})</span>}
             </p>
           </div>
 
@@ -202,104 +192,102 @@ export function RequestCard({ request, isAdmin, onVote, onDelete }: RequestCardP
           >
             <div className="px-4 pb-4 pt-2 border-t border-border/30">
               {isLoading ? (
-                <div className="space-y-3">
-                  <div className="flex gap-2">
-                    <Skeleton className="h-5 w-12" />
-                    <Skeleton className="h-5 w-16" />
-                    <Skeleton className="h-5 w-20" />
+                <div className="space-y-2">
+                  <div className="flex gap-2 mb-1">
+                    <Skeleton className="h-4 w-16" />
+                    <Skeleton className="h-4 w-20" />
+                    <Skeleton className="h-4 w-14" />
                   </div>
-                  <div className="flex gap-1.5">
-                    <Skeleton className="h-5 w-16 rounded-full" />
-                    <Skeleton className="h-5 w-20 rounded-full" />
+                  <div className="flex gap-1.5 mb-2">
                     <Skeleton className="h-5 w-14 rounded-full" />
+                    <Skeleton className="h-5 w-18 rounded-full" />
                   </div>
-                  <div className="flex gap-3 pt-2">
-                    {[...Array(5)].map((_, i) => (
-                      <div key={i} className="flex flex-col items-center gap-1.5">
-                        <Skeleton className="w-14 h-14 rounded-full" />
-                        <Skeleton className="h-2.5 w-12" />
-                      </div>
-                    ))}
-                  </div>
+                  {[...Array(6)].map((_, i) => (
+                    <div key={i} className="flex items-center gap-3">
+                      <Skeleton className="h-4 w-5" />
+                      <Skeleton className="h-4 flex-1" />
+                      <Skeleton className="h-4 w-10" />
+                    </div>
+                  ))}
                 </div>
               ) : details ? (
                 <>
-                  {/* Rating & meta */}
-                  <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground mb-3">
-                    {details.vote_average != null && details.vote_average > 0 && (
-                      <span className="flex items-center gap-1 font-medium" style={{ color: "var(--theme-primary)" }}>
-                        <Star className="h-4 w-4 fill-current" />
-                        {details.vote_average.toFixed(1)}
-                      </span>
-                    )}
-                    {details.runtime && (
+                  {/* Album meta row */}
+                  <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground mb-2">
+                    {details.artist?.name && (
                       <span className="flex items-center gap-1">
-                        <Clock className="h-3.5 w-3.5" />
-                        {formatRuntime(details.runtime)}
+                        <User className="h-3 w-3" />
+                        {details.artist.name}
                       </span>
                     )}
-                    {details.number_of_seasons && (
-                      <span>
-                        {details.number_of_seasons} season{details.number_of_seasons !== 1 ? "s" : ""}
-                        {" \u00b7 "}
-                        {details.number_of_episodes} episodes
+                    {details.release_date && (
+                      <span className="flex items-center gap-1">
+                        <Calendar className="h-3 w-3" />
+                        {details.release_date}
+                      </span>
+                    )}
+                    {details.nb_tracks && (
+                      <span className="flex items-center gap-1">
+                        <Disc className="h-3 w-3" />
+                        {details.nb_tracks} tracks
+                      </span>
+                    )}
+                    {details.duration && (
+                      <span className="flex items-center gap-1">
+                        <Clock className="h-3 w-3" />
+                        {formatTotalDuration(details.duration)}
                       </span>
                     )}
                   </div>
 
                   {/* Genres */}
-                  {details.genres?.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5 mb-3">
-                      {details.genres.map((g: { id: number; name: string }) => (
-                        <Badge key={g.id} variant="secondary" className="text-xs">
-                          {g.name}
-                        </Badge>
-                      ))}
+                  {details.genres?.data?.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mb-2">
+                      {details.genres.data
+                        .filter((g: { id: number; name: string }) => g.id !== 0)
+                        .map((g: { id: number; name: string }) => (
+                          <Badge key={g.id} variant="secondary" className="text-xs">
+                            {g.name}
+                          </Badge>
+                        ))}
                     </div>
                   )}
 
-                  {/* Tagline */}
-                  {details.tagline && (
-                    <p className="text-sm italic text-muted-foreground mb-3">
-                      &ldquo;{details.tagline}&rdquo;
-                    </p>
-                  )}
-
-                  {/* Created By (TV) */}
-                  {details.created_by?.length > 0 && (
-                    <p className="text-xs text-muted-foreground mb-3">
-                      Created by{" "}
-                      <span className="text-foreground">
-                        {details.created_by.map((c: { name: string }) => c.name).join(", ")}
+                  {/* Label & type */}
+                  <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground mb-3">
+                    {details.record_type && (
+                      <span className="capitalize">{details.record_type}</span>
+                    )}
+                    {details.label && (
+                      <span className="flex items-center gap-1">
+                        <Tag className="h-3 w-3" />
+                        {details.label}
                       </span>
-                    </p>
-                  )}
+                    )}
+                    {details.explicit_lyrics && (
+                      <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                        Explicit
+                      </Badge>
+                    )}
+                  </div>
 
-                  {/* Cast */}
-                  {cast.length > 0 && (
-                    <div className="pt-1">
-                      <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Cast</h4>
-                      <div className="cast-scroll">
-                        {cast.map((member: { id: number; name: string; character: string; profile_path: string | null }) => (
-                          <div key={member.id} className="flex flex-col items-center gap-1 min-w-[70px] max-w-[70px]">
-                            <div className="w-14 h-14 rounded-full overflow-hidden bg-muted flex-shrink-0">
-                              {member.profile_path ? (
-                                <img
-                                  src={`https://image.tmdb.org/t/p/w185${member.profile_path}`}
-                                  alt={member.name}
-                                  className="w-full h-full object-cover"
-                                />
-                              ) : (
-                                <div className="w-full h-full flex items-center justify-center">
-                                  <User className="h-5 w-5 text-muted-foreground" />
-                                </div>
-                              )}
-                            </div>
-                            <p className="text-[10px] font-medium leading-tight text-center truncate w-full">{member.name}</p>
-                            <p className="text-[9px] text-muted-foreground leading-tight text-center truncate w-full">{member.character}</p>
-                          </div>
-                        ))}
-                      </div>
+                  {/* Track listing */}
+                  {tracks.length > 0 && (
+                    <div className="divide-y divide-border/20">
+                      {tracks.map((track: { id: number; title: string; duration: number }, index: number) => (
+                        <div
+                          key={track.id}
+                          className="flex items-center gap-3 py-1.5"
+                        >
+                          <span className="text-xs text-muted-foreground w-5 text-right tabular-nums">
+                            {index + 1}
+                          </span>
+                          <span className="flex-1 text-sm truncate">{track.title}</span>
+                          <span className="text-xs text-muted-foreground tabular-nums">
+                            {formatDuration(track.duration)}
+                          </span>
+                        </div>
+                      ))}
                     </div>
                   )}
                 </>
@@ -309,7 +297,7 @@ export function RequestCard({ request, isAdmin, onVote, onDelete }: RequestCardP
         )}
       </AnimatePresence>
 
-      {/* Vote bar visualization */}
+      {/* Vote bar */}
       <div className="h-1 bg-muted">
         <motion.div
           initial={{ width: 0 }}

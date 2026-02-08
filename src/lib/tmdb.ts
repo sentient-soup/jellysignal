@@ -34,6 +34,59 @@ export function getBackdropUrl(path: string | null, size: "w780" | "w1280" | "or
   return `${TMDB_IMAGE_BASE}/${size}${path}`;
 }
 
+export function getProfileUrl(path: string | null, size: "w185" | "h632" | "original" = "w185"): string | null {
+  if (!path) return null;
+  return `${TMDB_IMAGE_BASE}/${size}${path}`;
+}
+
+export interface TMDBCastMember {
+  id: number;
+  name: string;
+  character: string;
+  profile_path: string | null;
+  order: number;
+}
+
+export interface TMDBMovieDetails {
+  id: number;
+  title: string;
+  overview: string;
+  tagline: string | null;
+  poster_path: string | null;
+  backdrop_path: string | null;
+  release_date: string;
+  runtime: number | null;
+  vote_average: number;
+  vote_count: number;
+  genres: { id: number; name: string }[];
+  status: string;
+  credits?: {
+    cast: TMDBCastMember[];
+  };
+}
+
+export interface TMDBTVDetails {
+  id: number;
+  name: string;
+  overview: string;
+  tagline: string | null;
+  poster_path: string | null;
+  backdrop_path: string | null;
+  first_air_date: string;
+  last_air_date: string | null;
+  vote_average: number;
+  vote_count: number;
+  genres: { id: number; name: string }[];
+  number_of_seasons: number;
+  number_of_episodes: number;
+  networks: { id: number; name: string; logo_path: string | null }[];
+  created_by: { id: number; name: string; profile_path: string | null }[];
+  status: string;
+  credits?: {
+    cast: TMDBCastMember[];
+  };
+}
+
 export async function searchTMDB(query: string, page = 1): Promise<TMDBSearchResponse> {
   const params = new URLSearchParams({
     api_key: TMDB_API_KEY,
@@ -58,9 +111,10 @@ export async function searchTMDB(query: string, page = 1): Promise<TMDBSearchRes
   return data;
 }
 
-export async function getMovieDetails(id: number) {
+export async function getMovieDetails(id: number): Promise<TMDBMovieDetails> {
   const params = new URLSearchParams({
     api_key: TMDB_API_KEY,
+    append_to_response: "credits",
   });
 
   const response = await fetch(`${TMDB_BASE_URL}/movie/${id}?${params}`);
@@ -72,9 +126,10 @@ export async function getMovieDetails(id: number) {
   return response.json();
 }
 
-export async function getTVDetails(id: number) {
+export async function getTVDetails(id: number): Promise<TMDBTVDetails> {
   const params = new URLSearchParams({
     api_key: TMDB_API_KEY,
+    append_to_response: "credits",
   });
 
   const response = await fetch(`${TMDB_BASE_URL}/tv/${id}?${params}`);

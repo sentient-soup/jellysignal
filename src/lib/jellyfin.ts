@@ -136,3 +136,40 @@ export async function searchJellyfinLibrary(
   // TODO: Implement episode-level checking
   return { exists: true, status: "complete", item: match };
 }
+
+export async function searchJellyfinMusic(
+  artistName: string,
+  albumName: string
+): Promise<{ exists: boolean; status: "complete" | "partial" | "missing"; item?: JellyfinItem }> {
+  try {
+    const params = new URLSearchParams({
+      IncludeItemTypes: "MusicAlbum",
+      Artists: artistName,
+      SearchTerm: albumName,
+      Recursive: "true",
+      Fields: "ProviderIds,Artists",
+      api_key: getJellyfinApiKey(),
+    });
+
+    const response = await fetch(`${getJellyfinUrl()}/Items?${params}`);
+
+    if (!response.ok) {
+      return { exists: false, status: "missing" };
+    }
+
+    const data: JellyfinLibraryResponse = await response.json();
+
+    const match = data.Items.find(
+      (item) => item.Name.toLowerCase() === albumName.toLowerCase()
+    );
+
+    if (!match) {
+      return { exists: false, status: "missing" };
+    }
+
+    return { exists: true, status: "complete", item: match };
+  } catch (error) {
+    console.error("[JellySignal] Jellyfin music search error:", error);
+    return { exists: false, status: "missing" };
+  }
+}
