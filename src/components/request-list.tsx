@@ -34,7 +34,7 @@ interface RequestListProps {
 
 export function RequestList({ isAdmin, mode }: RequestListProps) {
   const [mediaFilter, setMediaFilter] = useState("all");
-  const [statusFilter, setStatusFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("missing");
   const queryClient = useQueryClient();
 
   const { data, isLoading } = useQuery({

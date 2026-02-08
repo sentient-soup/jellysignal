@@ -131,15 +131,23 @@ export function MusicSearchBar({ onRequest }: MusicSearchBarProps) {
                     className="flex items-center gap-3 p-3 hover:bg-accent/50 transition-colors"
                   >
                     <div className="relative w-14 h-14 flex-shrink-0 rounded overflow-hidden bg-muted">
-                      {result.coverUrl ? (
+                      {result.coverUrl || result.deezerId ? (
                         <img
-                          src={result.coverUrl}
+                          src={result.coverUrl?.replace(/^http:\/\//, "https://") || `https://api.deezer.com/album/${result.deezerId}/image?size=medium`}
                           alt=""
                           className="w-full h-full object-cover"
-                          onError={(e) => { e.currentTarget.style.display = "none"; e.currentTarget.nextElementSibling?.classList.remove("hidden"); }}
+                          onError={(e) => {
+                            const fallback = `https://api.deezer.com/album/${result.deezerId}/image?size=medium`;
+                            if (e.currentTarget.src !== fallback && result.deezerId) {
+                              e.currentTarget.src = fallback;
+                            } else {
+                              e.currentTarget.style.display = "none";
+                              e.currentTarget.nextElementSibling?.classList.remove("hidden");
+                            }
+                          }}
                         />
                       ) : null}
-                      <div className={`w-full h-full flex items-center justify-center ${result.coverUrl ? "hidden" : ""}`}>
+                      <div className={`w-full h-full flex items-center justify-center ${result.coverUrl || result.deezerId ? "hidden" : ""}`}>
                         <Music className="h-6 w-6 text-muted-foreground" />
                       </div>
                     </div>
