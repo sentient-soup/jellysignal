@@ -22,29 +22,55 @@ export async function POST() {
     let updated = 0;
 
     for (const request of allRequests) {
-      let result;
+      // Respect admin overrides — skip library check
+      if (request.statusOverride === "complete") {
+        if (request.jellyfinStatus !== "complete") {
+          await db
+            .update(requests)
+            .set({ jellyfinStatus: "complete" })
+            .where(eq(requests.id, request.id));
+          updated++;
+        }
+        continue;
+      }
 
       if (request.mediaType === "music") {
         if (!request.artistName || !request.albumName) continue;
-        result = await searchJellyfinMusic(request.artistName, request.albumName);
+        const result = await searchJellyfinMusic(request.artistName, request.albumName);
+
+        if (result.status !== request.jellyfinStatus) {
+          await db
+            .update(requests)
+            .set({
+              jellyfinStatus: result.status,
+              jellyfinId: result.item?.Id || null,
+            })
+            .where(eq(requests.id, request.id));
+          updated++;
+        }
       } else {
         if (!request.tmdbId) continue;
-        result = await searchJellyfinLibrary(
+        const result = await searchJellyfinLibrary(
           request.tmdbId,
           request.mediaType as "movie" | "tv"
         );
-      }
 
-      if (result.status !== request.jellyfinStatus) {
-        await db
-          .update(requests)
-          .set({
-            jellyfinStatus: result.status,
-            jellyfinId: result.item?.Id || null,
-          })
-          .where(eq(requests.id, request.id));
-
-        updated++;
+        if (
+          result.status !== request.jellyfinStatus ||
+          result.jellyfinSeasons !== (request.jellyfinSeasons ?? undefined) ||
+          result.totalSeasons !== (request.totalSeasons ?? undefined)
+        ) {
+          await db
+            .update(requests)
+            .set({
+              jellyfinStatus: result.status,
+              jellyfinId: result.item?.Id || null,
+              jellyfinSeasons: result.jellyfinSeasons ?? null,
+              totalSeasons: result.totalSeasons ?? null,
+            })
+            .where(eq(requests.id, request.id));
+          updated++;
+        }
       }
     }
 

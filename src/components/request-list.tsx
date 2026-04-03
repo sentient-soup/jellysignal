@@ -6,7 +6,16 @@ import { RequestCard } from "./request-card";
 import { MusicRequestCard } from "./music-request-card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useState } from "react";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+} from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
+import { ChevronDown } from "lucide-react";
+import { useState, useMemo } from "react";
 import type { AppMode } from "./header";
 
 interface Request {
@@ -22,6 +31,9 @@ interface Request {
   albumName: string | null;
   previewUrl: string | null;
   jellyfinStatus: string;
+  statusOverride: string | null;
+  jellyfinSeasons: number | null;
+  totalSeasons: number | null;
   voteCount: number;
   hasVoted: boolean;
   requestedBy: string;
@@ -30,11 +42,13 @@ interface Request {
 interface RequestListProps {
   isAdmin?: boolean;
   mode: AppMode;
+  currentUsername?: string;
 }
 
-export function RequestList({ isAdmin, mode }: RequestListProps) {
+export function RequestList({ isAdmin, mode, currentUsername }: RequestListProps) {
   const [mediaFilter, setMediaFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("missing");
+  const [requesterFilter, setRequesterFilter] = useState(currentUsername ?? "all");
   const queryClient = useQueryClient();
 
   const { data, isLoading } = useQuery({
@@ -69,6 +83,20 @@ export function RequestList({ isAdmin, mode }: RequestListProps) {
     },
   });
 
+  const overrideMutation = useMutation({
+    mutationFn: async ({ requestId, statusOverride }: { requestId: number; statusOverride: "complete" | null }) => {
+      const res = await fetch(`/api/requests/${requestId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ statusOverride }),
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["requests"] });
+    },
+  });
+
   const handleVote = async (requestId: number) => {
     await voteMutation.mutateAsync(requestId);
   };
@@ -77,7 +105,24 @@ export function RequestList({ isAdmin, mode }: RequestListProps) {
     await deleteMutation.mutateAsync(requestId);
   };
 
+  const handleOverride = async (requestId: number, statusOverride: "complete" | null) => {
+    await overrideMutation.mutateAsync({ requestId, statusOverride });
+  };
+
+  const uniqueRequesters = useMemo(() => {
+    const requests: Request[] = data?.requests || [];
+    const names = new Set(requests.map((r) => r.requestedBy));
+    return Array.from(names).sort();
+  }, [data]);
+
   let filteredRequests = data?.requests || [];
+
+  // Filter by requester
+  if (requesterFilter !== "all") {
+    filteredRequests = filteredRequests.filter(
+      (r: Request) => r.requestedBy === requesterFilter
+    );
+  }
 
   // Filter by mode
   if (mode === "music") {
@@ -107,17 +152,36 @@ export function RequestList({ isAdmin, mode }: RequestListProps) {
     <div className="space-y-6">
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-        {mode === "media" ? (
-          <Tabs value={mediaFilter} onValueChange={setMediaFilter}>
-            <TabsList className="bg-card/50">
-              <TabsTrigger value="all">All</TabsTrigger>
-              <TabsTrigger value="movie">Movies</TabsTrigger>
-              <TabsTrigger value="tv">TV Shows</TabsTrigger>
-            </TabsList>
-          </Tabs>
-        ) : (
-          <div />
-        )}
+        <div className="flex flex-wrap gap-2 items-center">
+          {mode === "media" && (
+            <Tabs value={mediaFilter} onValueChange={setMediaFilter}>
+              <TabsList className="bg-card/50">
+                <TabsTrigger value="all">All</TabsTrigger>
+                <TabsTrigger value="movie">Movies</TabsTrigger>
+                <TabsTrigger value="tv">TV Shows</TabsTrigger>
+              </TabsList>
+            </Tabs>
+          )}
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="bg-card/50 gap-1">
+                {requesterFilter === "all" ? "All Requesters" : requesterFilter}
+                <ChevronDown className="h-4 w-4 opacity-50" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              <DropdownMenuRadioGroup value={requesterFilter} onValueChange={setRequesterFilter}>
+                <DropdownMenuRadioItem value="all">All</DropdownMenuRadioItem>
+                {uniqueRequesters.map((name) => (
+                  <DropdownMenuRadioItem key={name} value={name}>
+                    {name}
+                  </DropdownMenuRadioItem>
+                ))}
+              </DropdownMenuRadioGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
 
         <Tabs value={statusFilter} onValueChange={setStatusFilter}>
           <TabsList className="bg-card/50">
@@ -175,6 +239,7 @@ export function RequestList({ isAdmin, mode }: RequestListProps) {
                   isAdmin={isAdmin}
                   onVote={handleVote}
                   onDelete={handleDelete}
+                  onOverride={handleOverride}
                 />
               )
             )}

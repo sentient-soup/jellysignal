@@ -60,6 +60,13 @@ const MUSIC_COLUMNS = [
   { name: "preview_url", type: "TEXT" },
 ];
 
+// Add override and season tracking columns to existing databases
+const OVERRIDE_COLUMNS = [
+  { name: "status_override", type: "TEXT" },
+  { name: "jellyfin_seasons", type: "INTEGER" },
+  { name: "total_seasons", type: "INTEGER" },
+];
+
 // Synchronous table creation using native libsql (production/Docker).
 // Falls back to async @libsql/client for local dev where native module may not load.
 function ensureTables() {
@@ -81,6 +88,14 @@ function ensureTables() {
         // Column already exists, ignore
       }
     }
+    // Migrate existing DBs: add override column if missing
+    for (const col of OVERRIDE_COLUMNS) {
+      try {
+        nativeDb.exec(`ALTER TABLE requests ADD COLUMN ${col.name} ${col.type}`);
+      } catch {
+        // Column already exists, ignore
+      }
+    }
     nativeDb.close();
     console.log("[JellySignal] Database tables initialized (sync)");
   } catch {
@@ -88,6 +103,13 @@ function ensureTables() {
     const c = getClient();
     c.executeMultiple(INIT_SQL).then(async () => {
       for (const col of MUSIC_COLUMNS) {
+        try {
+          await c.execute(`ALTER TABLE requests ADD COLUMN ${col.name} ${col.type}`);
+        } catch {
+          // Column already exists, ignore
+        }
+      }
+      for (const col of OVERRIDE_COLUMNS) {
         try {
           await c.execute(`ALTER TABLE requests ADD COLUMN ${col.name} ${col.type}`);
         } catch {

@@ -2,10 +2,11 @@
 
 import { motion, AnimatePresence } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
-import { Film, Tv, ChevronUp, Check, AlertTriangle, Clock, Trash2, Star, User } from "lucide-react";
+import { Film, Tv, ChevronUp, Check, AlertTriangle, Clock, Trash2, Star, User, ShieldCheck, Undo2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import Image from "next/image";
 import { useState } from "react";
 
@@ -19,6 +20,9 @@ interface RequestCardProps {
     posterUrl: string | null;
     overview: string | null;
     jellyfinStatus: string;
+    statusOverride: string | null;
+    jellyfinSeasons: number | null;
+    totalSeasons: number | null;
     voteCount: number;
     hasVoted: boolean;
     requestedBy: string;
@@ -26,6 +30,7 @@ interface RequestCardProps {
   isAdmin?: boolean;
   onVote: (id: number) => Promise<void>;
   onDelete?: (id: number) => Promise<void>;
+  onOverride?: (id: number, statusOverride: "complete" | null) => Promise<void>;
 }
 
 function formatRuntime(minutes: number): string {
@@ -34,7 +39,7 @@ function formatRuntime(minutes: number): string {
   return h > 0 ? `${h}h ${m}m` : `${m}m`;
 }
 
-export function RequestCard({ request, isAdmin, onVote, onDelete }: RequestCardProps) {
+export function RequestCard({ request, isAdmin, onVote, onDelete, onOverride }: RequestCardProps) {
   const [voting, setVoting] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [localVoted, setLocalVoted] = useState(request.hasVoted);
@@ -81,8 +86,20 @@ export function RequestCard({ request, isAdmin, onVote, onDelete }: RequestCardP
     }
   };
 
+  const [overriding, setOverriding] = useState(false);
+
+  const handleOverride = async (override: "complete" | null) => {
+    if (!onOverride) return;
+    setOverriding(true);
+    try {
+      await onOverride(request.id, override);
+    } finally {
+      setOverriding(false);
+    }
+  };
+
   const statusConfig = {
-    complete: { label: "In Library", icon: Check, variant: "success" as const },
+    complete: { label: request.statusOverride === "complete" ? "In Library (Admin)" : "In Library", icon: request.statusOverride === "complete" ? ShieldCheck : Check, variant: "success" as const },
     partial: { label: "Partial", icon: AlertTriangle, variant: "warning" as const },
     missing: { label: "Requested", icon: Clock, variant: "pending" as const },
   };
@@ -145,23 +162,70 @@ export function RequestCard({ request, isAdmin, onVote, onDelete }: RequestCardP
           </div>
 
           <div className="flex items-center gap-2 mt-2">
-            <Badge variant={status.variant} className="gap-1">
-              <StatusIcon className="h-3 w-3" />
-              {status.label}
-            </Badge>
+            {request.jellyfinStatus === "partial" && request.jellyfinSeasons != null && request.totalSeasons != null ? (
+              <TooltipProvider delayDuration={300}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Badge variant={status.variant} className="gap-1 cursor-help">
+                      <StatusIcon className="h-3 w-3" />
+                      {status.label}
+                    </Badge>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="max-w-[240px]">
+                    <p className="font-medium">{request.jellyfinSeasons} of {request.totalSeasons} season{request.totalSeasons !== 1 ? "s" : ""} available</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {request.totalSeasons - request.jellyfinSeasons} season{request.totalSeasons - request.jellyfinSeasons !== 1 ? "s" : ""} missing from Jellyfin library
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            ) : (
+              <Badge variant={status.variant} className="gap-1">
+                <StatusIcon className="h-3 w-3" />
+                {status.label}
+              </Badge>
+            )}
             <span className="text-xs text-muted-foreground">
               by {request.requestedBy}
             </span>
-            {isAdmin && onDelete && (
-              <Button
-                size="icon"
-                variant="ghost"
-                onClick={(e) => { e.stopPropagation(); handleDelete(); }}
-                disabled={deleting}
-                className="h-6 w-6 ml-auto text-muted-foreground hover:text-destructive"
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-              </Button>
+            {isAdmin && (
+              <div className="flex items-center gap-1 ml-auto">
+                {onOverride && request.jellyfinStatus === "partial" && request.statusOverride !== "complete" && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={(e) => { e.stopPropagation(); handleOverride("complete"); }}
+                    disabled={overriding}
+                    className="h-6 px-2 text-xs text-muted-foreground hover:text-green-500"
+                  >
+                    <ShieldCheck className="h-3.5 w-3.5 mr-1" />
+                    Mark Complete
+                  </Button>
+                )}
+                {onOverride && request.statusOverride === "complete" && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={(e) => { e.stopPropagation(); handleOverride(null); }}
+                    disabled={overriding}
+                    className="h-6 px-2 text-xs text-muted-foreground hover:text-orange-500"
+                  >
+                    <Undo2 className="h-3.5 w-3.5 mr-1" />
+                    Remove Override
+                  </Button>
+                )}
+                {onDelete && (
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    onClick={(e) => { e.stopPropagation(); handleDelete(); }}
+                    disabled={deleting}
+                    className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                )}
+              </div>
             )}
           </div>
         </div>

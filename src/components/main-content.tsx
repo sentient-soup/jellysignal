@@ -204,7 +204,7 @@ export function MainContent({ user, mode }: MainContentProps) {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
       >
-        <RequestList isAdmin={user.isAdmin} mode={mode} />
+        <RequestList isAdmin={user.isAdmin} mode={mode} currentUsername={user.username} />
       </motion.div>
     </main>
   );

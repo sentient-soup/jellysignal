@@ -1,5 +1,7 @@
 // Jellyfin API client
 
+import { getTVDetails } from "./tmdb";
+
 function getJellyfinUrl() {
   return process.env.JELLYFIN_URL || "http://localhost:8096";
 }
@@ -112,10 +114,33 @@ export async function getJellyfinLibrary(
   }
 }
 
+async function getJellyfinSeriesSeasons(seriesId: string): Promise<JellyfinItem[]> {
+  const params = new URLSearchParams({
+    api_key: getJellyfinApiKey(),
+  });
+
+  const response = await fetch(`${getJellyfinUrl()}/Shows/${seriesId}/Seasons?${params}`);
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch series seasons");
+  }
+
+  const data: JellyfinLibraryResponse = await response.json();
+  return data.Items;
+}
+
+export interface LibrarySearchResult {
+  exists: boolean;
+  status: "complete" | "partial" | "missing";
+  item?: JellyfinItem;
+  jellyfinSeasons?: number;
+  totalSeasons?: number;
+}
+
 export async function searchJellyfinLibrary(
   tmdbId: string,
   mediaType: "movie" | "tv"
-): Promise<{ exists: boolean; status: "complete" | "partial" | "missing"; item?: JellyfinItem }> {
+): Promise<LibrarySearchResult> {
   const items = await getJellyfinLibrary(
     mediaType === "movie" ? ["Movie"] : ["Series"]
   );
@@ -131,10 +156,27 @@ export async function searchJellyfinLibrary(
     return { exists: true, status: "complete", item: match };
   }
 
-  // For TV shows, we'd need to check episodes
-  // For now, just mark as complete if found
-  // TODO: Implement episode-level checking
-  return { exists: true, status: "complete", item: match };
+  // For TV shows, compare Jellyfin seasons against TMDB expected count
+  try {
+    const jellyfinSeasons = await getJellyfinSeriesSeasons(match.Id);
+
+    // Filter out specials and bonus content
+    const validSeasons = jellyfinSeasons.filter((s) => {
+      if (s.IndexNumber === 0 || s.IndexNumber == null) return false;
+      const name = (s.Name || "").toLowerCase();
+      if (name.includes("extras") || name.includes("bonus") || name.includes("behind the scenes") || name.includes("specials")) return false;
+      return true;
+    });
+
+    const tmdbDetails = await getTVDetails(parseInt(tmdbId));
+    const expectedSeasons = tmdbDetails.number_of_seasons;
+
+    const status = validSeasons.length >= expectedSeasons ? "complete" : "partial";
+    return { exists: true, status, item: match, jellyfinSeasons: validSeasons.length, totalSeasons: expectedSeasons };
+  } catch (error) {
+    console.error("[JellySignal] Error checking TV seasons, falling back to partial:", error);
+    return { exists: true, status: "partial", item: match };
+  }
 }
 
 export async function searchJellyfinMusic(

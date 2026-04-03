@@ -37,6 +37,9 @@ export const requests = sqliteTable("requests", {
   jellyfinStatus: text("jellyfin_status", {
     enum: ["missing", "partial", "complete"]
   }).default("missing"),
+  statusOverride: text("status_override"),
+  jellyfinSeasons: integer("jellyfin_seasons"),
+  totalSeasons: integer("total_seasons"),
 
   createdAt: integer("created_at", { mode: "timestamp" })
     .$defaultFn(() => new Date()),
